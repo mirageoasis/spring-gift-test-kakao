@@ -2,13 +2,14 @@ package gift.application;
 
 import gift.model.Category;
 import gift.model.CategoryRepository;
+import gift.model.OptionRepository;
+import gift.model.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -16,7 +17,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional
 class CategoryServiceTest {
 
     @Autowired
@@ -25,8 +25,16 @@ class CategoryServiceTest {
     @Autowired
     private CategoryRepository categoryRepository;
 
+    @Autowired
+    private OptionRepository optionRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
     @BeforeEach
     void setUp() {
+        optionRepository.deleteAll();
+        productRepository.deleteAll();
         categoryRepository.deleteAll();
     }
 

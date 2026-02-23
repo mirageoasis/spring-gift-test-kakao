@@ -17,7 +17,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.NoSuchElementException;
 
@@ -28,7 +27,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
 class GiftServiceTest {
 
     @Autowired
@@ -52,6 +50,11 @@ class GiftServiceTest {
 
     @BeforeEach
     void setUp() {
+        optionRepository.deleteAll();
+        productRepository.deleteAll();
+        categoryRepository.deleteAll();
+        memberRepository.deleteAll();
+
         Category category = categoryRepository.save(new Category("테스트 카테고리"));
         Product product = productRepository.save(new Product("테스트 상품", 10000, "http://image.url", category));
         option = optionRepository.save(new Option("기본 옵션", 10, product));
