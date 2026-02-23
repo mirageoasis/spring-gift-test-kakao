@@ -1,6 +1,5 @@
 package gift.ui;
 
-import gift.model.Category;
 import gift.model.CategoryRepository;
 import gift.model.Member;
 import gift.model.MemberRepository;
@@ -8,6 +7,7 @@ import gift.model.Option;
 import gift.model.OptionRepository;
 import gift.model.Product;
 import gift.model.ProductRepository;
+import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,23 +15,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
+import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class GiftControllerTest {
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @LocalServerPort
+    private int port;
 
     @Autowired
     private OptionRepository optionRepository;
@@ -51,20 +48,31 @@ class GiftControllerTest {
 
     @BeforeEach
     void setUp() {
+        RestAssured.port = port;
         optionRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
         memberRepository.deleteAll();
 
         // 카테고리, 상품: API 호출로 준비
-        Category category = restTemplate.postForEntity(
-                "/api/categories", Map.of("name", "테스트 카테고리"), Category.class
-        ).getBody();
-        Product product = restTemplate.postForEntity(
-                "/api/products", Map.of("name", "테스트 상품", "price", 10000,
-                        "imageUrl", "http://image.url", "categoryId", category.getId()),
-                Product.class
-        ).getBody();
+        Long categoryId = given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "테스트 카테고리"))
+            .when()
+                .post("/api/categories")
+            .then()
+                .extract().jsonPath().getLong("id");
+
+        Long productId = given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "테스트 상품", "price", 10000,
+                        "imageUrl", "http://image.url", "categoryId", categoryId))
+            .when()
+                .post("/api/products")
+            .then()
+                .extract().jsonPath().getLong("id");
+
+        Product product = productRepository.findById(productId).orElseThrow();
 
         // 옵션, 회원: API 미제공으로 Repository 사용
         option = optionRepository.save(new Option("기본 옵션", 10, product));
@@ -78,30 +86,15 @@ class GiftControllerTest {
 
         @Test
         void 선물_전송_API_성공() {
-            // given
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Member-Id", sender.getId().toString());
-
-            String requestBody = """
-                {
-                    "optionId": %d,
-                    "quantity": 3,
-                    "receiverId": %d,
-                    "message": "축하해"
-                }
-                """.formatted(option.getId(), receiver.getId());
-
-            // when
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    "/api/gifts",
-                    HttpMethod.POST,
-                    new HttpEntity<>(requestBody, headers),
-                    Void.class
-            );
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .header("Member-Id", sender.getId())
+                .body(Map.of("optionId", option.getId(), "quantity", 3,
+                        "receiverId", receiver.getId(), "message", "축하해"))
+            .when()
+                .post("/api/gifts")
+            .then()
+                .statusCode(HttpStatus.OK.value());
 
             // 재고 감소 확인 (다음 행동 검증)
             Option updated = optionRepository.findById(option.getId()).orElseThrow();
@@ -110,86 +103,40 @@ class GiftControllerTest {
 
         @Test
         void Member_Id_헤더가_없으면_400_에러() {
-            // given
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            // Member-Id 헤더 없음
-
-            String requestBody = """
-                {
-                    "optionId": %d,
-                    "quantity": 1,
-                    "receiverId": %d,
-                    "message": "축하해"
-                }
-                """.formatted(option.getId(), receiver.getId());
-
-            // when
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    "/api/gifts",
-                    HttpMethod.POST,
-                    new HttpEntity<>(requestBody, headers),
-                    Void.class
-            );
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("optionId", option.getId(), "quantity", 1,
+                        "receiverId", receiver.getId(), "message", "축하해"))
+            .when()
+                .post("/api/gifts")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value());
         }
 
         @Test
         void 존재하지_않는_옵션이면_500_에러() {
-            // given
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Member-Id", sender.getId().toString());
-
-            String requestBody = """
-                {
-                    "optionId": 99999,
-                    "quantity": 1,
-                    "receiverId": %d,
-                    "message": "축하해"
-                }
-                """.formatted(receiver.getId());
-
-            // when
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    "/api/gifts",
-                    HttpMethod.POST,
-                    new HttpEntity<>(requestBody, headers),
-                    Void.class
-            );
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .header("Member-Id", sender.getId())
+                .body(Map.of("optionId", 99999, "quantity", 1,
+                        "receiverId", receiver.getId(), "message", "축하해"))
+            .when()
+                .post("/api/gifts")
+            .then()
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
 
         @Test
         void 재고가_부족하면_500_에러() {
-            // given
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Member-Id", sender.getId().toString());
-
-            String requestBody = """
-                {
-                    "optionId": %d,
-                    "quantity": 100,
-                    "receiverId": %d,
-                    "message": "축하해"
-                }
-                """.formatted(option.getId(), receiver.getId());
-
-            // when
-            ResponseEntity<Void> response = restTemplate.exchange(
-                    "/api/gifts",
-                    HttpMethod.POST,
-                    new HttpEntity<>(requestBody, headers),
-                    Void.class
-            );
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .header("Member-Id", sender.getId())
+                .body(Map.of("optionId", option.getId(), "quantity", 100,
+                        "receiverId", receiver.getId(), "message", "축하해"))
+            .when()
+                .post("/api/gifts")
+            .then()
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
 
             // 재고 변경 없음 확인
             Option updated = optionRepository.findById(option.getId()).orElseThrow();

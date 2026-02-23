@@ -1,10 +1,9 @@
 package gift.ui;
 
-import gift.model.Category;
 import gift.model.CategoryRepository;
 import gift.model.OptionRepository;
-import gift.model.Product;
 import gift.model.ProductRepository;
+import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -12,22 +11,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 
-import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class ProductControllerTest {
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @LocalServerPort
+    private int port;
 
     @Autowired
     private OptionRepository optionRepository;
@@ -38,18 +38,23 @@ class ProductControllerTest {
     @Autowired
     private CategoryRepository categoryRepository;
 
-    private Category category;
+    private Long categoryId;
 
     @BeforeEach
     void setUp() {
+        RestAssured.port = port;
         optionRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
 
         // 카테고리는 API 호출로 준비
-        category = restTemplate.postForEntity(
-                "/api/categories", Map.of("name", "테스트 카테고리"), Category.class
-        ).getBody();
+        categoryId = given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "테스트 카테고리"))
+            .when()
+                .post("/api/categories")
+            .then()
+                .extract().jsonPath().getLong("id");
     }
 
     @Nested
@@ -58,61 +63,47 @@ class ProductControllerTest {
 
         @Test
         void 상품을_생성하면_200을_반환한다() {
-            // given
-            var request = Map.of(
-                    "name", "커피",
-                    "price", 5000,
-                    "imageUrl", "http://image.url",
-                    "categoryId", category.getId()
-            );
-
-            // when
-            ResponseEntity<Product> response = restTemplate.postForEntity(
-                    "/api/products", request, Product.class);
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().getName()).isEqualTo("커피");
-            assertThat(response.getBody().getPrice()).isEqualTo(5000);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "커피", "price", 5000,
+                        "imageUrl", "http://image.url", "categoryId", categoryId))
+            .when()
+                .post("/api/products")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("name", equalTo("커피"))
+                .body("price", equalTo(5000));
         }
 
         @Test
         void 상품을_생성하면_조회_시_포함된다() {
             // given
-            restTemplate.postForEntity(
-                    "/api/products",
-                    Map.of("name", "커피", "price", 5000, "imageUrl", "http://image.url",
-                            "categoryId", category.getId()),
-                    Product.class);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "커피", "price", 5000,
+                        "imageUrl", "http://image.url", "categoryId", categoryId))
+            .when()
+                .post("/api/products");
 
-            // when
-            ResponseEntity<List<Product>> response = restTemplate.exchange(
-                    "/api/products", HttpMethod.GET, null,
-                    new ParameterizedTypeReference<>() {});
-
-            // then
-            assertThat(response.getBody())
-                    .extracting(Product::getName)
-                    .contains("커피");
+            // when & then
+            given()
+            .when()
+                .get("/api/products")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("name", hasItem("커피"));
         }
 
         @Test
         void 존재하지_않는_카테고리로_상품을_생성하면_500_에러() {
-            // given
-            var request = Map.of(
-                    "name", "커피",
-                    "price", 5000,
-                    "imageUrl", "http://image.url",
-                    "categoryId", 99999
-            );
-
-            // when
-            ResponseEntity<Product> response = restTemplate.postForEntity(
-                    "/api/products", request, Product.class);
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "커피", "price", 5000,
+                        "imageUrl", "http://image.url", "categoryId", 99999))
+            .when()
+                .post("/api/products")
+            .then()
+                .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
 
@@ -122,38 +113,40 @@ class ProductControllerTest {
 
         @Test
         void 상품이_없으면_빈_목록을_반환한다() {
-            // when
-            ResponseEntity<List<Product>> response = restTemplate.exchange(
-                    "/api/products", HttpMethod.GET, null,
-                    new ParameterizedTypeReference<>() {});
-
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isEmpty();
+            given()
+            .when()
+                .get("/api/products")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("$", empty());
         }
 
         @Test
         void 여러_상품을_생성하면_모두_조회된다() {
             // given
-            restTemplate.postForEntity("/api/products",
-                    Map.of("name", "커피", "price", 5000, "imageUrl", "http://image1.url",
-                            "categoryId", category.getId()),
-                    Product.class);
-            restTemplate.postForEntity("/api/products",
-                    Map.of("name", "케이크", "price", 15000, "imageUrl", "http://image2.url",
-                            "categoryId", category.getId()),
-                    Product.class);
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "커피", "price", 5000,
+                        "imageUrl", "http://image1.url", "categoryId", categoryId))
+            .when()
+                .post("/api/products");
 
-            // when
-            ResponseEntity<List<Product>> response = restTemplate.exchange(
-                    "/api/products", HttpMethod.GET, null,
-                    new ParameterizedTypeReference<>() {});
+            given()
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .body(Map.of("name", "케이크", "price", 15000,
+                        "imageUrl", "http://image2.url", "categoryId", categoryId))
+            .when()
+                .post("/api/products");
 
-            // then
-            assertThat(response.getBody()).hasSize(2);
-            assertThat(response.getBody())
-                    .extracting(Product::getName)
-                    .containsExactlyInAnyOrder("커피", "케이크");
+            // when & then
+            given()
+            .when()
+                .get("/api/products")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("$", hasSize(2))
+                .body("name", hasItem("커피"))
+                .body("name", hasItem("케이크"));
         }
     }
 }
