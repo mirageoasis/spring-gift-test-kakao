@@ -23,6 +23,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
@@ -43,8 +45,6 @@ class GiftAcceptanceTest {
     @Autowired
     private MemberRepository memberRepository;
 
-    private Category category;
-    private Product product;
     private Option option;
     private Member sender;
     private Member receiver;
@@ -56,8 +56,17 @@ class GiftAcceptanceTest {
         categoryRepository.deleteAll();
         memberRepository.deleteAll();
 
-        category = categoryRepository.save(new Category("테스트 카테고리"));
-        product = productRepository.save(new Product("테스트 상품", 10000, "http://image.url", category));
+        // 카테고리, 상품: API 호출로 준비
+        Category category = restTemplate.postForEntity(
+                "/api/categories", Map.of("name", "테스트 카테고리"), Category.class
+        ).getBody();
+        Product product = restTemplate.postForEntity(
+                "/api/products", Map.of("name", "테스트 상품", "price", 10000,
+                        "imageUrl", "http://image.url", "categoryId", category.getId()),
+                Product.class
+        ).getBody();
+
+        // 옵션, 회원: API 미제공으로 Repository 사용
         option = optionRepository.save(new Option("기본 옵션", 10, product));
         sender = memberRepository.save(new Member("보내는사람", "sender@test.com"));
         receiver = memberRepository.save(new Member("받는사람", "receiver@test.com"));
