@@ -23,7 +23,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-class CategoryAcceptanceTest {
+class CategoryControllerTest {
 
     @Autowired
     private TestRestTemplate restTemplate;

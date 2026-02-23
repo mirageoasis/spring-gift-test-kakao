@@ -24,7 +24,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-class ProductAcceptanceTest {
+class ProductControllerTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
