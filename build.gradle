@@ -32,10 +32,23 @@ dependencies {
 }
 
 tasks.register('startDb', Exec) {
-	commandLine 'docker', 'compose', 'up', '-d', '--wait'
+	commandLine 'docker', 'compose', 'up', 'postgres', '-d', '--wait'
 }
 
 tasks.register('stopDb', Exec) {
+	commandLine 'docker', 'compose', 'down'
+}
+
+tasks.register('dockerBuild', Exec) {
+	commandLine 'docker', 'compose', 'build'
+}
+
+tasks.register('dockerUp', Exec) {
+	dependsOn 'dockerBuild'
+	commandLine 'docker', 'compose', 'up', '-d', '--wait'
+}
+
+tasks.register('dockerDown', Exec) {
 	commandLine 'docker', 'compose', 'down'
 }
 
@@ -43,11 +56,12 @@ tasks.named('test') {
 	dependsOn 'startDb'
 	finalizedBy 'stopDb'
 	useJUnitPlatform()
+	exclude '**/acceptance/**'
 }
 
 tasks.register('cucumberTest', Test) {
-	dependsOn 'startDb'
-	finalizedBy 'stopDb'
+	dependsOn 'dockerUp'
+	finalizedBy 'dockerDown'
 	useJUnitPlatform {
 		includeEngines 'junit-platform-suite'
 	}
