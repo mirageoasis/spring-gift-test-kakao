@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.test.context.ActiveProfiles;
 
 @CucumberContextConfiguration
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = WebEnvironment.NONE)
 @ActiveProfiles("test")
 public class CucumberSpringConfiguration {
 
@@ -25,7 +25,7 @@ public class CucumberSpringConfiguration {
 
         @Bean
         @Scope("cucumber-glue")
-        public ApiClient apiClient(@Value("${local.server.port}") int port) {
+        public ApiClient apiClient(@Value("${test.server.port}") int port) {
             return new ApiClient(port);
         }
     }
