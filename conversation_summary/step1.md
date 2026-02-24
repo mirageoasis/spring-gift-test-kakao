@@ -105,6 +105,25 @@ GiftSteps.@Before     → member 삭제
 CommonSteps.@Before   → option, product, category, member 전부 삭제
 ```
 
+#### 개선 5: DB 초기화를 ORM `deleteAll()`에서 SQL `TRUNCATE CASCADE`로 전환
+
+**문제**: ORM `deleteAll()`은 FK 제약조건 때문에 삭제 순서를 수동 관리해야 하고, 엔티티 추가 시 코드 수정이 필요함.
+
+**변경 전**:
+```java
+optionRepository.deleteAll();
+productRepository.deleteAll();
+categoryRepository.deleteAll();
+memberRepository.deleteAll();
+```
+
+**변경 후**:
+```java
+jdbcTemplate.execute("TRUNCATE wish, option, product, category, member CASCADE");
+```
+
+**선택 이유**: `TRUNCATE CASCADE`는 FK 순서에 관계없이 한 번에 초기화되고, 테이블 추가 시 한 줄만 수정하면 됨.
+
 ---
 
 ### 결정사항
@@ -117,4 +136,5 @@ CommonSteps.@Before   → option, product, category, member 전부 삭제
 | feature 키워드 | 영문 키워드 사용 | 표준 Gherkin 키워드로 통일 |
 | 표현 분리 | "등록되어 있다"(Given) vs "생성하면"(When) | 하나의 패턴이 하나의 어노테이션에만 대응되도록 |
 | `@Before` 위치 | CommonSteps에 통합 | 한 곳에서 데이터 정리 로직 파악 가능 |
+| DB 초기화 방식 | `TRUNCATE CASCADE` (JdbcTemplate) | FK 순서 무관, 엔티티 추가 시 유지보수 용이 |
 
