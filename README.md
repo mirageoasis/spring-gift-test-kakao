@@ -97,3 +97,26 @@ Claude.md에 자동 트리거 조건을 추가했습니다:
 - [TEST_STRATEGY.md](TEST_STRATEGY.md) - 테스트 전략
 - [AI_USAGE.md](AI_USAGE.md) - AI 활용 상세 기록
 - [.claude/skills/](/.claude/skills/) - Custom Skill 정의
+
+---
+
+## 요구사항 충족 여부
+
+각 단계별 요구사항에 대한 충족 여부와 근거를 정리했습니다.
+
+| 단계 | 내용 | 문서 |
+|------|------|------|
+| Step 1 | Cucumber 전환 | [criteria/step1.md](criteria/step1.md) |
+| Step 2 | PostgreSQL 전환 | [criteria/step2.md](criteria/step2.md) |
+| Step 3 | Docker E2E 테스트 환경 | [criteria/step3.md](criteria/step3.md) |
+
+## 대화 요약
+
+피어 논의 및 AI 대화 과정을 단계별로 요약했습니다.
+
+| 단계 | 문서 |
+|------|------|
+| Step 1 | [conversation_summary/step1.md](conversation_summary/step1.md) |
+| Step 2 | [conversation_summary/step2.md](conversation_summary/step2.md) |
+| Step 3 | [conversation_summary/step3.md](conversation_summary/step3.md) |
+| Step 4 | [conversation_summary/step4.md](conversation_summary/step4.md) |
