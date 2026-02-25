@@ -53,8 +53,6 @@ tasks.register('dockerDown', Exec) {
 }
 
 tasks.named('test') {
-	dependsOn 'startDb'
-	finalizedBy 'stopDb'
 	useJUnitPlatform()
 	exclude '**/acceptance/**'
 }

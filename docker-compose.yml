@@ -21,9 +21,6 @@ services:
       - "28080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gift_test
-      SPRING_DATASOURCE_USERNAME: test
-      SPRING_DATASOURCE_PASSWORD: test
-      SPRING_JPA_HIBERNATE_DDL_AUTO: create
     depends_on:
       postgres:
         condition: service_healthy
