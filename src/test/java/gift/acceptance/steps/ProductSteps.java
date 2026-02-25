@@ -9,8 +9,6 @@ import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.cucumber.java.en.Then;
-
 import java.util.List;
 import java.util.Map;
 
@@ -52,6 +50,12 @@ public class ProductSteps {
     @When("상품 목록을 조회하면")
     public void 상품_목록을_조회하면() {
         context.setResponse(apiClient.get("/api/products"));
+    }
+
+    // HTTP 4xx/5xx 응답을 실패로 판단 (카테고리 미존재: 500)
+    @Then("상품 생성에 실패한다")
+    public void 상품_생성에_실패한다() {
+        assertThat(context.getResponse().statusCode()).isGreaterThanOrEqualTo(400);
     }
 
     @Then("응답에 {string} 상품이 포함되어 있다")

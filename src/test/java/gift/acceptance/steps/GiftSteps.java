@@ -69,12 +69,19 @@ public class GiftSteps {
         context.setResponse(response);
     }
 
-    @When("Member-Id 헤더 없이 선물을 전송하면")
-    public void 헤더_없이_선물을_전송하면() {
+    // Member-Id 헤더 없이 요청하여 인증되지 않은 사용자를 시뮬레이션
+    @When("로그인하지 않은 사용자가 선물을 전송하면")
+    public void 로그인하지_않은_사용자가_선물을_전송하면() {
         ExtractableResponse<Response> response = apiClient.post("/api/gifts",
                 Map.of("optionId", context.getOptionId(), "quantity", 1,
                         "receiverId", context.getReceiverId(), "message", "선물입니다"));
         context.setResponse(response);
+    }
+
+    // HTTP 4xx/5xx 응답을 실패로 판단 (재고 부족: 500, 인증 실패: 400, 옵션 미존재: 500)
+    @Then("선물 전송에 실패한다")
+    public void 선물_전송에_실패한다() {
+        assertThat(context.getResponse().statusCode()).isGreaterThanOrEqualTo(400);
     }
 
     @Then("옵션 재고가 {int}개로 차감되어 있다")
